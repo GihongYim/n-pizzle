@@ -3,7 +3,7 @@
 GEN=./npuzzle-gen.py
 SOLVER=./n_puzzle
 TESTS=10
-SIZE=3
+SIZE=5
 
 for ((i=1; i<=TESTS; i++)); do
     echo "============================="

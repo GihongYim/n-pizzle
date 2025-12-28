@@ -26,7 +26,7 @@ bool readPuzzle(std::ifstream& file, vector2D& board, int& n)
 {
     std::string line;
 
-    // 1️⃣ n 읽기 (주석 스킵)
+    // n 읽기 (주석 스킵)
     while (std::getline(file, line)) {
         if (line.empty() || line[0] == '#')
             continue;
@@ -41,7 +41,7 @@ bool readPuzzle(std::ifstream& file, vector2D& board, int& n)
 
     board.resize(n, std::vector<int>(n));
 
-    // 2️⃣ 퍼즐 읽기
+    // 퍼즐 읽기
     int row = 0;
     while (row < n && std::getline(file, line)) {
         if (line.empty() || line[0] == '#')
@@ -64,7 +64,7 @@ StateHash makeHash(const vector2D& state) {
     for (int i = 0; i < (int)state.size(); i++) {
         for (int j = 0; j < (int)state[i].size(); j++) {
             hash += char(state[i][j] + '0');
-            hash += ',';
+            hash += ' ';
         }
     }
     return hash;
@@ -127,26 +127,36 @@ std::vector<int> findPosition(const vector2D& board, int value) {
     return pos;
 }
 
-int Manhattan(const vector2D& current, const vector2D& goal) {
+int Manhattan(const vector2D& current, const std::vector<std::pair<int, int>>& goalPos) {
     int n = current.size();
     int distance = 0;
-    
-    for (int x = 0; x < n; x++) {
-        for (int y = 0; y < n; y++) {
-            int v = current[x][y];
-            if (v == 0) continue;
 
-            for (int i = 0; i < n; i++) {
-                for (int j = 0; j < n; j++) {
-                    if (goal[i][j] == v) {
-                        distance += abs(x - i) + abs(y - j);
-                    }
-                }
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < n; j++) {
+            int value = current[i][j];
+            if (value != 0) {
+                int goalX = goalPos[value].first;
+                int goalY = goalPos[value].second;
+                distance += abs(i - goalX) + abs(j - goalY);
             }
         }
     }
 
     return distance;
+}
+
+std::vector<std::pair<int, int>> buildGoalPos(const vector2D& goal) {
+    int n = goal.size();
+    std::vector<std::pair<int, int>> goalPos(n * n);
+
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < n; j++) {
+            int value = goal[i][j];
+            goalPos[value] = { i, j };
+        }
+    }
+
+    return goalPos;
 }
 
 std::vector<vector2D> expand(const vector2D& current)
@@ -204,41 +214,30 @@ int main(int argc, char* argv[])
     if (!readPuzzle(inputFile, start, n))
     {
         std::cerr << "Invalid puzzle format\n";
+        inputFile.close();
         return 1;
     }
+
+    inputFile.close();
 
     // Read an integer from the file
     std::cout << "Read integer: " << n << std::endl;
     
-    inputFile.close();
-
     vector2D goal = createSnailGoal(n);
+    std::vector<std::pair<int, int>> goalPos = buildGoalPos(goal);
 
     std::priority_queue<State, std::vector<State>, CompareNode> opened;
     std::unordered_map<StateHash, int> closed;
 
     // A* algorithm initialization
-
-    opened.push({ start, 0, Manhattan(start, goal) });
-
-    // {
-    //     // for debug
-    //     for (int i = 0; i < n; ++i) {
-    //         for (int j = 0; j < n; ++j) {
-    //             std::cout << goal[i][j] << " ";
-    //         }
-    //         std::cout << std::endl;
-    //     }
-    // }
-
-    // std::cout << "Initialized opened with the first configuration." << std::endl;
+    opened.push({ start, 0, Manhattan(start, goalPos) });
 
     while (!opened.empty()) {
         State cur = opened.top();
         opened.pop();
 
         StateHash h = makeHash(cur.board);
-
+    
         if (closed.count(h) && closed[h] <= cur.g) continue;
         closed[h] = cur.g;
 
@@ -252,7 +251,7 @@ int main(int argc, char* argv[])
             State nextState;
             nextState.board = next[i];
             nextState.g = cur.g + 1;
-            nextState.h = Manhattan(next[i], goal);
+            nextState.h = Manhattan(next[i], goalPos);
 
             opened.push(nextState);
         }
